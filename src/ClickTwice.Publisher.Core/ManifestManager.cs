@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
@@ -77,20 +78,56 @@ namespace ClickTwice.Publisher.Core
         private AppManifest CreateFromAssemblyInfo(AppManifest manifest = null)
         {
             manifest = manifest ?? new AppManifest();
-            var projectFolder = new FileInfo(ProjectFilePath).Directory;
-            var infoFilePath = Path.Combine(projectFolder.FullName, "Properties", "AssemblyInfo.cs");
-            if (File.Exists(infoFilePath))
+            // In real-life projects AssemblyInfo is often split into several files,
+            // e.g. GlobalAssemblyInfo (linked to project) and AssemblyInfo with data
+            // specific to the project. The current solution parses csproj and takes into
+            // consideration.
+            // TODO: The solution doesn't take into consideration new project types
+            // which either don't use AssemblyInfo or
+            // Compile AssemblyInfo element is not present in csproj
+            var combinedAssemblyInfo = GetCombinedAssemblyInfo();
+            if (combinedAssemblyInfo.Any())
             {
-                var props = File.ReadAllLines(infoFilePath).Where(l => l.StartsWith("[assembly: ")).ToList();
+                var props = combinedAssemblyInfo.Where(l => l.StartsWith("[assembly: ")).ToList();
                 manifest.ApplicationName = props.Property("AssemblyTitle");
                 manifest.Description = props.Property("AssemblyDescription");
                 manifest.PublisherName = props.Property("AssemblyCompany");
                 manifest.SuiteName = props.Property("AssemblyProduct");
                 manifest.Copyright = props.Property("Copyright");
-                manifest.AppVersion = new Version(props.Property("Version"));
+                var versionProperty = props.Property("Version");
+                if (!string.IsNullOrEmpty(versionProperty))
+                {
+                    manifest.AppVersion = new Version(versionProperty);
+                }
                 return manifest;
             }
             return null;
+        }
+
+        private List<string> GetCombinedAssemblyInfo()
+        {
+            XDocument document;
+            using (var stream = File.OpenRead(ProjectFilePath))
+            {
+                document = XDocument.Load(stream);
+            }
+
+            var projectDir = Path.GetDirectoryName(ProjectFilePath);
+            var assemblyInfoPaths = (from compile in document.Descendants("{http://schemas.microsoft.com/developer/msbuild/2003}Compile")
+                                     from include in compile.Attributes("Include")
+                                     let value = include.Value
+                                     where value?.EndsWith("AssemblyInfo.cs") == true
+                                     select Path.Combine(projectDir, value))
+                                    .ToArray();
+
+            var assemblyInfoLines = new List<string>();
+            foreach (var assemblyInfoPath in assemblyInfoPaths)
+            {
+                var lines = File.ReadAllLines(assemblyInfoPath);
+                assemblyInfoLines.AddRange(lines);
+            }
+
+            return assemblyInfoLines;
         }
 
         public FileInfo DeployManifest(AppManifest manifest)
