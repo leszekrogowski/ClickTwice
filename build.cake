@@ -25,7 +25,7 @@ GitVersion versionInfo = null;
 // SETUP / TEARDOWN
 ///////////////////////////////////////////////////////////////////////////////
 
-Setup(() =>
+Setup(ctx =>
 {
     // Executed BEFORE the first task.
     Information("Running tasks...");
@@ -33,7 +33,7 @@ Setup(() =>
 	Information("Building for version {0}", versionInfo.FullSemVer);
 });
 
-Teardown(() =>
+Teardown(ctx =>
 {
     // Executed AFTER the last task.
     Information("Finished running tasks.");

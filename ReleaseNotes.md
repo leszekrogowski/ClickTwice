@@ -15,3 +15,6 @@
 # 0.1.3
 - Fixes the `WithVersion` extensions to add ".*" segments as needed, but this time correctly.
 - Fixes the `DoNotBuild()` method to hopefully actually work this time.
+
+# 0.1.4
+- Update Cake packages to ver. 0.30.0. Other packages have also been updated.
